@@ -22,7 +22,7 @@ impl Lexer {
             column: 1,
         }
     }
-    fn take_while(&mut self, predicate: fn(char)->bool) -> Option<String> {
+    fn take_while(&self, predicate: fn(char)->bool) -> Option<String> {
         let mut accumulator = String::from("");
         for c in self.text[self.index..].chars() {
             if predicate(c) {
@@ -44,8 +44,11 @@ impl Lexer {
         let first_char = String::from(first_char);
         self.index += 1;
 
+
         let next_chars = self.take_while(|x| x == '_' || x.is_alphanumeric());
         if next_chars.is_none() {
+            // roll back index b/c it will get incremented by accept_token
+            self.index -= 1;
             return Some(first_char);
         }
 
@@ -90,6 +93,8 @@ impl Lexer {
             }
             self.index += 1;
         }
+
+        self.tokens.push(Token::new(EOI, Location::new(self.row, self.column + 1), ""))
     }
 
     pub fn lex(mut self) -> Vec<Token> {
@@ -155,7 +160,45 @@ mod tests {
         let tokens = Lexer::new(text).lex();
         assert_eq!(tokens, vec![
             Token::new(TokenKind::Fn, Location::new(1, 1), "fn"),
-            Token::new(TokenKind::Fn, Location::new(2, 1), "fn")
+            Token::new(TokenKind::Fn, Location::new(2, 1), "fn"),
+            Token::new(EOI, Location::new(2, 4), "")
         ])
+    }
+    #[test]
+    fn x_colon() {
+        let text = "x:";
+        let tokens = Lexer::new(text).lex();
+        assert_eq!(tokens.len(), 3);
+
+        assert!(tokens[0].content_equal(&Token::un_located(Name, "x")));
+        assert!(tokens[1].content_equal(&Token::un_located(Colon, ":")));
+        assert!(tokens[2].content_equal(&Token::un_located(EOI, "")))
+    }
+
+    #[test]
+    fn one_colon() {
+        let text = "1:";
+        let tokens = Lexer::new(text).lex();
+        assert_eq!(tokens.len(), 3);
+
+        assert!(tokens[0].content_equal(&Token::un_located(Int, "1")));
+        assert!(tokens[1].content_equal(&Token::un_located(Colon, ":")));
+        assert!(tokens[2].content_equal(&Token::un_located(EOI, "")))
+    }
+
+    #[test]
+    fn var_decl() {
+        let text = "let x: int = 4;";
+        let tokens = Lexer::new(text).lex();
+        assert_eq!(tokens.len(), 8);
+
+        assert!(tokens[0].content_equal(&Token::un_located(Let, "let")));
+        assert!(tokens[1].content_equal(&Token::un_located(Name, "x")));
+        assert!(tokens[2].content_equal(&Token::un_located(Colon, ":")));
+        assert!(tokens[3].content_equal(&Token::un_located(IntType, "int")));
+        assert!(tokens[4].content_equal(&Token::un_located(Equals, "=")));
+        assert!(tokens[5].content_equal(&Token::un_located(Int, "4")));
+        assert!(tokens[6].content_equal(&Token::un_located(Semicolon, ";")));
+        assert!(tokens[7].content_equal(&Token::un_located(EOI, "")));
     }
 }

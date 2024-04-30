@@ -1,6 +1,7 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 use std::str::FromStr;
+use itertools::Itertools;
 use crate::testing::s_expr::SExpr::Function;
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -10,12 +11,11 @@ pub enum SExpr<T> {
 }
 
 impl<T> SExpr<T> {
-
-    /// Releases the first element of a SExpr, discarding the rest of the tree.
-    pub fn release(self) -> T {
+    /// Releases the first element of a SExpr, and return the args.
+    pub fn release(self) -> (T, Vec<SExpr<T>>) {
         match self {
-            SExpr::Value(t) => t,
-            SExpr::Function(t, _) => t
+            SExpr::Value(t) => (t, vec![]),
+            SExpr::Function(t, args) => (t, args)
         }
     }
 }
@@ -45,7 +45,7 @@ impl<T: FromStr + Debug> SExpr<T> where <T as FromStr>::Err: Debug {
                 }
 
                 let func_name = args.remove(0);
-                return Some(Function(func_name.release(), args));
+                return Some(Function(func_name.release().0, args));
             }
         }
 
@@ -96,8 +96,33 @@ impl<T: FromStr + Debug> SExpr<T> where <T as FromStr>::Err: Debug {
     }
 
     pub fn parse(text: impl AsRef<str>) -> SExpr<T> {
-        let mut tokens = Self::tokenize(text.as_ref()).into_iter().peekable();
+        let mut tokens = Self::tokenize(text.as_ref()).into_iter();
         return Self::parse_rec(&mut tokens).unwrap();
+    }
+}
+
+
+impl<T: Display> Display for SExpr<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            SExpr::Value(v) => v.to_string(),
+            Function(h, args) => {
+                let all_values = args.iter().all(|x| match x {
+                    SExpr::Value(_) => true,
+                    Function(_, _) => false
+                });
+
+
+                if all_values {
+                    let middle = args.iter().map(|x| x.to_string()).join(" ");
+                    format!("( {} {} )", h, middle)
+                }
+                else {
+                    let middle = args.iter().map(|x| x.to_string()).join("\n");
+                    format!("{}\n)", indent::indent_with("\t", format!("( {}\n{}", h, middle)))
+                }
+            }
+        })
     }
 }
 

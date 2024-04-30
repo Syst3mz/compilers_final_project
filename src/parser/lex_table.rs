@@ -1,7 +1,8 @@
 use crate::parser::token_kind::TokenKind;
 
 type T = TokenKind;
-pub const LEX_TABLE : [(&'static str, TokenKind); 28]= [
+pub const LEX_TABLE : [(&'static str, TokenKind); 29]= [
+    ("return", T::Return),
     ("while", T::While),
     ("true", T::True),
     ("false", T::False),
@@ -29,5 +30,5 @@ pub const LEX_TABLE : [(&'static str, TokenKind); 28]= [
     ("[", T::LBracket),
     ("]", T::RBracket),
     (",", T::Comma),
-    ("!", T::Bang)
+    ("!", T::Bang),
 ];

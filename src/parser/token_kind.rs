@@ -10,6 +10,7 @@ pub enum TokenKind {
     LParen, RParen,
     Arrow,
     If, Else,
+    Return,
 
     // exprs and the like
     Plus, EqualsEquals, RAngleBracket, Minus, PipePie, AndAnd, Bang,
@@ -23,5 +24,8 @@ pub enum TokenKind {
     ListType,
 
     Name, Int,
-    True, False
+    True, False,
+
+    //end of input marker,
+    EOI
 }

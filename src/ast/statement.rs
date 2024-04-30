@@ -1,20 +1,21 @@
+use crate::ast::ast_type::AstType;
 use crate::ast::Block;
 use crate::ast::expression::Expression;
 use crate::parser::token::Token;
 use crate::testing::s_expr::SExpr;
 use crate::testing::to_s_expr::ToSExpr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     VariableDeclaration {
         name: Token,
-        type_: Token,
+        type_: AstType,
         value: Expression
     },
     FunctionDefinition {
         name: Token,
-        type_: Token,
-        arg_list: Vec<(Token, Token)>,
+        type_: AstType,
+        arg_list: Vec<(Token, AstType)>,
         body: Block
     },
     Assignment {
@@ -34,7 +35,7 @@ impl ToSExpr for Statement {
         match self {
             S::VariableDeclaration { name, type_, value } => {
                 SExpr::Function(String::from("variable_declaration"), vec![
-                    SExpr::Value(format!("{}: {}", name.lexeme(), type_.lexeme())),
+                    SExpr::Value(format!("{}:{}", name.lexeme(), type_.to_string())),
                     value.to_s_expr()
                 ])
             }
@@ -42,24 +43,27 @@ impl ToSExpr for Statement {
                 let mut args = vec![SExpr::Value(name.lexeme().to_string())];
                 for t in arg_list
                     .into_iter()
-                    .map(|(name, type_)| {
-                        SExpr::Value(format!("{}: {}", name.lexeme(), type_.lexeme()))
+                    .map(|(name, ast_type)| {
+                        SExpr::Value(format!("{}:{}", name.lexeme(), ast_type))
                     }) {
                     args.push(t)
                 }
                 args.push(body.to_s_expr());
-                args.push(SExpr::Value(format!("->{}", type_.lexeme())));
+                args.push(SExpr::Value(format!("->{}", type_.to_string())));
 
                 SExpr::Function(String::from("function_define"), args)
             }
             S::Assignment { to, value } => {
                 SExpr::Function(String::from("="), vec![
-                    SExpr::Value(to.lexeme().to_string()), value.to_s_expr()])
+                    SExpr::Value(to.lexeme().to_string()),
+                    value.to_s_expr(),
+                ])
             }
             S::While { condition, body } => {
                 SExpr::Function(String::from("while"), vec![condition.to_s_expr(), body.to_s_expr()])
             }
-            S::Return(e) | S::Expression(e) => e.to_s_expr(),
+            S::Return(e) => SExpr::Function(String::from("return"), vec![e.to_s_expr()]),
+            S::Expression(e) => e.to_s_expr(),
         }
     }
 }
