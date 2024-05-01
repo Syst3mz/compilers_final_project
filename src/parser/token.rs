@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::parser::location::Location;
 use crate::parser::token_kind::TokenKind;
 
@@ -38,5 +39,11 @@ impl Token {
 
     pub fn content_equal(&self, rhs: &Self) -> bool {
         self.kind == rhs.kind && self.lexeme == rhs.lexeme
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}({})@{}", self.kind, self.lexeme, self.location)
     }
 }

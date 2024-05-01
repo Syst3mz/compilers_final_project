@@ -44,11 +44,11 @@ impl Lexer {
         let first_char = String::from(first_char);
         self.index += 1;
 
-
         let next_chars = self.take_while(|x| x == '_' || x.is_alphanumeric());
+        // roll back index b/c it will get incremented by accept_token
+        self.index -= 1;
         if next_chars.is_none() {
-            // roll back index b/c it will get incremented by accept_token
-            self.index -= 1;
+
             return Some(first_char);
         }
 
@@ -200,5 +200,53 @@ mod tests {
         assert!(tokens[5].content_equal(&Token::un_located(Int, "4")));
         assert!(tokens[6].content_equal(&Token::un_located(Semicolon, ";")));
         assert!(tokens[7].content_equal(&Token::un_located(EOI, "")));
+    }
+
+    #[test]
+    fn func_call() {
+        let text = "cat();";
+        let tokens = Lexer::new(text).lex();
+        assert_eq!(tokens.len(), 5);
+        assert!(tokens[0].content_equal(&Token::un_located(Name, "cat")));
+        assert!(tokens[1].content_equal(&Token::un_located(LParen, "(")));
+        assert!(tokens[2].content_equal(&Token::un_located(RParen, ")")));
+        assert!(tokens[3].content_equal(&Token::un_located(Semicolon, ";")));
+        assert!(tokens[4].content_equal(&Token::un_located(EOI, "")));
+    }
+
+    #[test]
+    fn int_call() {
+        let text = "123();";
+        let tokens = Lexer::new(text).lex();
+        assert_eq!(tokens.len(), 5);
+        assert!(tokens[0].content_equal(&Token::un_located(Int, "123")));
+        assert!(tokens[1].content_equal(&Token::un_located(LParen, "(")));
+        assert!(tokens[2].content_equal(&Token::un_located(RParen, ")")));
+        assert!(tokens[3].content_equal(&Token::un_located(Semicolon, ";")));
+        assert!(tokens[4].content_equal(&Token::un_located(EOI, "")));
+    }
+
+    #[test]
+    fn func_def_1() {
+        let text = "fn func(a:int, b:bool) -> int {}";
+        let tokens = Lexer::new(text).lex();
+
+        assert_eq!(tokens.len(), 16);
+        assert!(tokens[0].content_equal(&Token::un_located(Fn, "fn")));
+        assert!(tokens[1].content_equal(&Token::un_located(Name, "func")));
+        assert!(tokens[2].content_equal(&Token::un_located(LParen, "(")));
+        assert!(tokens[3].content_equal(&Token::un_located(Name, "a")));
+        assert!(tokens[4].content_equal(&Token::un_located(Colon, ":")));
+        assert!(tokens[5].content_equal(&Token::un_located(IntType, "int")));
+        assert!(tokens[6].content_equal(&Token::un_located(Comma, ",")));
+        assert!(tokens[7].content_equal(&Token::un_located(Name, "b")));
+        assert!(tokens[8].content_equal(&Token::un_located(Colon, ":")));
+        assert!(tokens[9].content_equal(&Token::un_located(BoolType, "bool")));
+        assert!(tokens[10].content_equal(&Token::un_located(RParen, ")")));
+        assert!(tokens[11].content_equal(&Token::un_located(Arrow, "->")));
+        assert!(tokens[12].content_equal(&Token::un_located(IntType, "int")));
+        assert!(tokens[13].content_equal(&Token::un_located(LCurlyBrace, "{")));
+        assert!(tokens[14].content_equal(&Token::un_located(RCurlyBrace, "}")));
+        assert!(tokens[15].content_equal(&Token::un_located(EOI, "")));
     }
 }

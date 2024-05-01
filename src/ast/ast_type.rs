@@ -4,7 +4,9 @@ use std::fmt::{Display, Formatter};
 pub enum AstType{
     Int,
     Bool,
-    List(Box<AstType>)
+    List(Box<AstType>),
+    /// Should never appear in actual code, but does here because I didn't want to make more types for the interpreter
+    UntypedList
 }
 
 impl Display for AstType {
@@ -12,7 +14,8 @@ impl Display for AstType {
         write!(f, "{}", match self {
             AstType::Int => String::from("int"),
             AstType::Bool => String::from("bool"),
-            AstType::List(t) => {format!("list<{}>", t)}
+            AstType::List(t) => format!("list<{}>", t),
+            AstType::UntypedList => String::from("list<Untyped>"),
         })
     }
 }

@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq, Ord)]
 pub struct Location {
     row: usize,
@@ -19,5 +21,11 @@ impl Location {
 
     pub fn column(&self) -> usize {
         self.column
+    }
+}
+
+impl Display for Location {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}", self.row, self.column)
     }
 }

@@ -5,8 +5,8 @@ use crate::ast::binary_operator::BinaryOperator::{Add, GreaterThan};
 use crate::ast::Block;
 use crate::ast::expression::Expression;
 use crate::ast::expression::Expression::{BinaryOperation, List, UnaryOperation};
-use crate::ast::statement::Statement;
-use crate::ast::statement::Statement::{Assignment, FunctionDefinition};
+use crate::ast::statement::{FunctionDefinition, Statement};
+use crate::ast::statement::Statement::{Assignment, FunctionDefinitionStatement};
 use crate::ast::unary_operator::UnaryOperator;
 use crate::parser::lexer::Lexer;
 use crate::parser::parser_error::{ParserError, ParserErrorKind};
@@ -139,11 +139,10 @@ impl Parser {
             })
         }
         if self.tokens.t_match(Fn).is_some() {
-            let name = self.parse_atom()?;
-            let name = match name {
-                Expression::Name(name) => name,
-                _ => {return Err(self.invalid_name())
-                    .context("Found an invalid name when parsing function call.")}
+            let name = if let Some(name) = self.tokens.t_match(Name) {
+                name
+            } else {
+                return Err(self.invalid_name()).context("Invalid name for a function.")
             };
 
             if self.tokens.t_match(LParen).is_none() {
@@ -177,12 +176,12 @@ impl Parser {
             let type_ = self.parse_type()?;
             let block = self.parse_block()?;
 
-            return Ok(FunctionDefinition {
+            return Ok(FunctionDefinitionStatement(FunctionDefinition {
                 name,
                 type_,
                 arg_list: args,
                 body: block,
-            })
+            }))
         }
         if self.tokens.t_match(Return).is_some() {
             let ret = Statement::Return(self.parse_expr()?);
@@ -211,6 +210,7 @@ impl Parser {
             }
             _ => {}
         }
+
 
         self.eat_semicolon()?;
         return Ok(Statement::Expression(expr))
@@ -355,10 +355,8 @@ impl Parser {
             }
             Name => {
                 let name = token;
-
                 if self.tokens.t_match(LParen).is_some() {
                     let arguments = self.parse_list(Self::parse_expr, RParen)?;
-
                     return Ok(Expression::FunctionCall { name, arguments })
                 }
 
@@ -394,7 +392,8 @@ impl Parser {
                     })
                 }
             }
-            _ => { Err(self.unexpected_token(None))
+            _ => {
+                Err(self.unexpected_token(None))
                 .context(
                     format!(
                         "Attempted to parse {:?}({}) as an expression.",
@@ -554,5 +553,33 @@ mod tests {
         let text = "if x { if y { z } }";
         let ast = Parser::new(text).parse().unwrap();
         assert_eq!(to_s_expr(ast), vec![SExpr::parse("(if x (if y (z)))")])
+    }
+
+    #[test]
+    fn paren_expr() {
+        let text = "(1 + 2 + 3) + (1 + 2);";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(+ (+ (+ 1 2) 3) (+ 1 2))")])
+    }
+
+    #[test]
+    fn func_call() {
+        let text = "cat();";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(cat)")])
+    }
+
+    #[test]
+    fn func_def_1() {
+        let text = "fn func(a:int, b:bool) -> int {}";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(function_define func a:int b:bool (empty_block) ->int)")])
+    }
+
+    #[test]
+    fn func_def_2() {
+        let text = "fn func(a:int, b:bool) -> int { return a + b; }";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(function_define func a:int b:bool (return (+ a b)) ->int)")])
     }
 }

@@ -13,6 +13,9 @@ pub type Block = Vec<Statement>;
 
 impl ToSExpr for Block {
     fn to_s_expr(self) -> SExpr<String> {
+        if self.len() == 0 {
+            return SExpr::Function(String::from("empty_block"), vec![]);
+        }
         let mut args: Vec<SExpr<String>> = self.into_iter().map(|x| x.to_s_expr()).collect();
 
         let (first, mut released_args) = args.remove(0).release();

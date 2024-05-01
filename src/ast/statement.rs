@@ -6,18 +6,20 @@ use crate::testing::s_expr::SExpr;
 use crate::testing::to_s_expr::ToSExpr;
 
 #[derive(Debug, Clone)]
+pub struct FunctionDefinition {
+    pub name: Token,
+    pub type_: AstType,
+    pub arg_list: Vec<(Token, AstType)>,
+    pub body: Block
+}
+#[derive(Debug, Clone)]
 pub enum Statement {
     VariableDeclaration {
         name: Token,
         type_: AstType,
         value: Expression
     },
-    FunctionDefinition {
-        name: Token,
-        type_: AstType,
-        arg_list: Vec<(Token, AstType)>,
-        body: Block
-    },
+    FunctionDefinitionStatement(FunctionDefinition),
     Assignment {
         to: Token,
         value: Expression
@@ -39,17 +41,17 @@ impl ToSExpr for Statement {
                     value.to_s_expr()
                 ])
             }
-            S::FunctionDefinition { name, type_, arg_list, body } => {
-                let mut args = vec![SExpr::Value(name.lexeme().to_string())];
-                for t in arg_list
+            S::FunctionDefinitionStatement(def) => {
+                let mut args = vec![SExpr::Value(def.name.lexeme().to_string())];
+                for t in def. arg_list
                     .into_iter()
                     .map(|(name, ast_type)| {
                         SExpr::Value(format!("{}:{}", name.lexeme(), ast_type))
                     }) {
                     args.push(t)
                 }
-                args.push(body.to_s_expr());
-                args.push(SExpr::Value(format!("->{}", type_.to_string())));
+                args.push(def.body.to_s_expr());
+                args.push(SExpr::Value(format!("->{}", def.type_.to_string())));
 
                 SExpr::Function(String::from("function_define"), args)
             }
