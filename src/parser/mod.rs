@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use crate::ast::ast_type::AstType;
 use crate::ast::binary_operator::BinaryOperator;
 use crate::ast::binary_operator::BinaryOperator::{Add, GreaterThan};
 use crate::ast::Block;
@@ -15,6 +14,7 @@ use crate::parser::token_kind::TokenKind;
 use crate::parser::token_kind::TokenKind::*;
 use core::ops::Fn;
 use anyhow::Context;
+use crate::typed_ast::r#type::Type;
 
 pub mod lexer;
 mod lex_table;
@@ -66,17 +66,17 @@ impl Parser {
         ParserError::new(ParserErrorKind::InvalidName, self.tokens.current(), Some(String::from("Expected a name!")))
     }
 
-    fn parse_type(&mut self) -> anyhow::Result<AstType> {
+    fn parse_type(&mut self) -> anyhow::Result<Type> {
         if self.tokens.t_match(IntType).is_some() {
-            return Ok(AstType::Int)
+            return Ok(Type::Int)
         }
 
         if self.tokens.t_match(BoolType).is_some() {
-            return Ok(AstType::Bool)
+            return Ok(Type::Bool)
         }
 
         if self.tokens.t_match(ListType).is_some() {
-            return Ok(AstType::List(Box::new(self.parse_type()?)))
+            return Ok(Type::List(Box::new(self.parse_type()?)))
         }
 
         return Err(self.unexpected_token_alternates(vec![IntType, BoolType, ListType]))

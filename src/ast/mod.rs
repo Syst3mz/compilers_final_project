@@ -2,7 +2,6 @@ pub mod unary_operator;
 pub mod binary_operator;
 pub mod statement;
 pub mod expression;
-pub mod ast_type;
 
 use crate::ast::statement::Statement;
 use crate::testing::s_expr::SExpr;

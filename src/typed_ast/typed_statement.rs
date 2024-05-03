@@ -1,38 +1,33 @@
-use crate::ast::Block;
 use crate::ast::expression::Expression;
+use crate::ast::statement::FunctionDefinition;
 use crate::parser::token::Token;
 use crate::testing::s_expr::SExpr;
 use crate::testing::to_s_expr::ToSExpr;
+use crate::typed_ast::typed_expression::TypedExpression;
 use crate::typed_ast::r#type::Type;
+use crate::typed_ast::TypedBlock;
 #[derive(Debug, Clone)]
-pub struct FunctionDefinition {
-    pub name: Token,
-    pub type_: Type,
-    pub arg_list: Vec<(Token, Type)>,
-    pub body: Block
-}
-#[derive(Debug, Clone)]
-pub enum Statement {
+pub enum TypedStatement {
     VariableDeclaration {
         name: Token,
         type_: Type,
-        value: Expression
+        value: TypedExpression
     },
     FunctionDefinitionStatement(FunctionDefinition),
     Assignment {
         to: Token,
-        value: Expression
+        value: TypedExpression
     },
     While {
-        condition: Expression,
-        body: Block
+        condition: TypedExpression,
+        body: TypedBlock
     },
-    Return(Expression),
-    Expression(Expression)
+    Return(TypedExpression),
+    Expression(TypedExpression)
 }
-impl ToSExpr for Statement {
+impl ToSExpr for TypedStatement {
     fn to_s_expr(self) -> SExpr<String> {
-        type S = Statement;
+        type S = TypedStatement;
         match self {
             S::VariableDeclaration { name, type_, value } => {
                 SExpr::Function(String::from("variable_declaration"), vec![

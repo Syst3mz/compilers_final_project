@@ -1,4 +1,4 @@
-mod interpreter_value;
+/*mod interpreter_value;
 
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -255,4 +255,4 @@ mod tests {
         let mut interpreter = Interpreter::new(vec![]);
         assert_eq!(interpreter.evaluate(), None)
     }
-}
+}*/
