@@ -103,6 +103,31 @@ pub const OR_FALSE: &'static str = r"fn main() -> bool {
     return (0 > 1) || (0 > 1);
 }";
 
+pub const WHILE: &'static str = r"fn main() -> int {
+    let x:int = 0;
+
+    while 42 > x {
+        x = x + 1
+    }
+
+    return x;
+}";
+
+pub const WHILE_IF: &'static str = r"fn main() -> int {
+    let x:int = 0;
+
+    while 42 > x {
+        if x > 1 {
+            x = x + 2
+        }
+        else {
+            x = x + 1
+        }
+    }
+
+    return x;
+}";
+
 pub const UNIVERSE_G: &'static str = r"fn main() -> bool {
     return 42 > 0;
 }";

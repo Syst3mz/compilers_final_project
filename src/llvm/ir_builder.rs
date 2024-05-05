@@ -119,7 +119,32 @@ impl IrBuilder {
                 self.store_variable(scope, type_, to.lexeme(), value)?;
                 Ok(None)
             },
-            TypedStatement::While { .. } => unimplemented!(),
+            TypedStatement::While { condition, body } => {
+                let mut while_scope = vec![];
+                let while_entry = self.counters.next("while");
+
+                while_scope.push(Elem(format!("br label %{}", &while_entry)));
+                self.push_label(&mut while_scope, &while_entry);
+
+                let condition = self.convert_expression(condition, &mut while_scope)?;
+                let while_true = self.counters.next("while_true");
+                let while_end = self.counters.next("while_end");
+                while_scope.push(Elem(format!("br {}, label %{}, label %{}",
+                    condition.to_ir(true),
+                    &while_true,
+                    &while_end
+                )));
+
+                self.push_label(&mut while_scope, while_true);
+                let (body, _) = self.convert_block(body)?;
+                while_scope.push(Scope(body));
+                while_scope.push(Elem(format!("br label %{}", while_entry)));
+
+                self.push_label(&mut while_scope, while_end);
+
+                scope.push(Scope(while_scope));
+                Ok(None)
+            },
             TypedStatement::Return(e) => {
                 let v = self.convert_expression(e, scope)?;
                 scope.push(Elem(format!("ret {}", v.to_ir(true))));

@@ -135,7 +135,12 @@ impl Typer {
             S::Assignment { to, value } => {
                 self.type_var_assignment(to, value)
             },
-            S::While { .. } => unimplemented!(),
+            S::While { condition, body } => {
+                Ok(TypedStatement::While {
+                    condition: self.type_expression(condition)?,
+                    body: self.type_block(body)?
+                })
+            },
             S::Return(e) => Ok(TS::Return(self.type_expression(e)?)),
             S::Expression(e) => Ok(TS::Expression(self.type_expression(e)?)),
         }

@@ -266,4 +266,18 @@ mod tests {
         assert_eq!(run_test(path, UNIVERSE_FUNC_CALL_ARGS)?, 42);
         Ok(())
     }
+
+    #[test]
+    fn while_() -> anyhow::Result<()> {
+        let path = ".\\testing\\while.ll";
+        assert_eq!(run_test(path, WHILE)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn while_if() -> anyhow::Result<()> {
+        let path = ".\\testing\\while_if.ll";
+        assert_eq!(run_test(path, WHILE_IF)?, 42);
+        Ok(())
+    }
 }
