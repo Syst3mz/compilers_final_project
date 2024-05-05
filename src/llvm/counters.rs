@@ -13,9 +13,9 @@ impl Counters {
         }
     }
 
-    pub fn next(&mut self, what: impl AsRef<str>) -> usize {
+    pub fn next(&mut self, what: impl AsRef<str>) -> String {
         let count = self.counters.entry(what.as_ref().to_string()).or_insert(0);
         *count += 1;
-        return *count
+        return format!("%{}_{}", what.as_ref(), *count)
     }
 }

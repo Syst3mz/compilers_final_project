@@ -1,17 +1,16 @@
-use crate::ast::statement::FunctionDefinition;
-use crate::llvm::value::{Constant, Value};
-use crate::llvm::r#type::Type;
+use crate::llvm::ir_builder::IrBuilder;
+use crate::typed_ast::typed_statement::TypedStatement;
 
 mod counters;
-mod converter;
-mod r#type;
-mod function;
-mod convert;
-mod value;
+mod ir_builder;
+mod element;
 
-pub enum LLVM {
-    Type(Type),
-    Function(FunctionDefinition),
-    Val(Value),
-    Return(Type, Value)
+pub fn convert(ast: Vec<TypedStatement>) -> anyhow::Result<Vec<String>> {
+    let mut builder = IrBuilder::new();
+    let mut elements = vec![];
+    for statement in ast {
+        builder.convert_statement(statement, &mut elements)?;
+    }
+
+    Ok(elements.into_iter().map(|x| x.flatten()).flatten().collect())
 }

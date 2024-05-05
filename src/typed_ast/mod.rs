@@ -1,40 +1,28 @@
-use std::collections::HashMap;
-use crate::ast::statement::Statement;
+use crate::testing::s_expr::SExpr;
+use crate::testing::to_s_expr::ToSExpr;
 use crate::typed_ast::r#type::Type;
 use crate::typed_ast::typed_statement::TypedStatement;
+
 
 pub mod r#type;
 pub mod typed_statement;
 pub mod typed_expression;
 
-pub type TypedBlock = Vec<Statement>;
-
-
-pub struct Typer {
-    environment: HashMap<String, Type>,
-    typed_ast: Vec<TypedStatement>
+#[derive(Debug, Clone)]
+pub struct TypedBlock {
+    pub body: Vec<TypedStatement>,
+    pub type_: Type
 }
 
-impl Typer {
-    pub fn type_ast(ast: Vec<Statement>) -> Vec<TypedStatement> {
-        let mut typer = Self {
-            environment: Default::default(),
-            typed_ast: vec![],
-        };
-
-        typer.run_typer(ast);
-        typer.typed_ast
-    }
-
-    fn run_typer(&mut self, on: Vec<Statement>) {
-        for statement in on {
-            self.type_statement(statement)
+impl ToSExpr for TypedBlock {
+    fn to_s_expr(self) -> SExpr<String> {
+        if self.body.len() == 0 {
+            return SExpr::Function(String::from("empty_block"), vec![]);
         }
+        let mut args: Vec<SExpr<String>> = self.body.into_iter().map(|x| x.to_s_expr()).collect();
+
+        let (first, mut released_args) = args.remove(0).release();
+        released_args.append(&mut args);
+        SExpr::Function(first, released_args)
     }
-
-    fn type_statement(&mut self, statement: Statement) {
-
-    }
-
-    fn type_expr()
 }
