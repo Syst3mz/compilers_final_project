@@ -105,7 +105,6 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::binary_operator::BinaryOperator::And;
     use super::*;
 
     #[test]

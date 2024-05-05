@@ -1,4 +1,4 @@
-use crate::llvm::ir_builder::{ConverterError, MemoryValue};
+use crate::llvm::ir_builder::MemoryValue;
 use crate::typed_ast::r#type::Type;
 
 #[derive(Debug, Clone)]
@@ -24,11 +24,10 @@ impl Variable {
     }
 
     /// Store from a temp to a variable
-    pub fn store(&self, from: MemoryValue) -> Result<String, ConverterError> {
-        Ok(format!("store {}, {}* %{}",
+    pub fn store(&self, from: MemoryValue) -> String {
+        format!("store {}, {}* %{}",
                    from.to_ir(true),
                    self.type_.llvm_type(),
                    self.name)
-        )
     }
 }

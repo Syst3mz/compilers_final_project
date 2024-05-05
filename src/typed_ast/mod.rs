@@ -1,7 +1,6 @@
 use crate::testing::s_expr::SExpr;
 use crate::testing::to_s_expr::ToSExpr;
 use crate::typed_ast::r#type::Type;
-use crate::typed_ast::typed_expression::TypedExpression;
 use crate::typed_ast::typed_statement::TypedStatement;
 
 

@@ -1,6 +1,4 @@
-use std::fmt::format;
 use itertools::Itertools;
-use thiserror::Error;
 use crate::ast::binary_operator::BinaryOperator;
 use crate::ast::unary_operator::UnaryOperator;
 use crate::llvm::counters::Counters;
@@ -12,12 +10,6 @@ use crate::typed_ast::r#type::Type;
 use crate::typed_ast::typed_expression::TypedExpression;
 use crate::typed_ast::typed_statement::TypedStatement;
 use crate::typed_ast::TypedBlock;
-
-#[derive(Debug, Error)]
-pub enum ConverterError {
-    #[error("Tried to treat {0} as a value, it is not.")]
-    UnableToConvertToValue(String),
-}
 
 #[derive(Debug, Clone)]
 pub enum MemoryValue {
@@ -50,13 +42,6 @@ impl IrBuilder {
         }
     }
 
-    fn push_expr(&mut self, scope: &mut Vec<Element>, type_: Type, expr: impl AsRef<str>) -> MemoryValue {
-        let name = self.counters.next(type_.llvm_type());
-        let home = Temp(name.clone(), type_.clone());
-        scope.push(Elem(format!("{} = {} {}", name, type_.llvm_type(), expr.as_ref())));
-        return home;
-    }
-
     /// Load from a variable into a temp
     fn load_variable(&mut self, scope: &mut Vec<Element>, type_: Type, var: impl AsRef<str>) -> anyhow::Result<MemoryValue> {
         let var = var.as_ref();
@@ -71,10 +56,10 @@ impl IrBuilder {
     }
 
     /// Store from a temp to a variable
-    fn store_variable(&mut self, scope: &mut Vec<Element>, type_: Type, var: impl AsRef<str>, from: MemoryValue) -> Result<(), ConverterError> {
+    fn store_variable(&mut self, scope: &mut Vec<Element>, type_: Type, var: impl AsRef<str>, from: MemoryValue) -> anyhow::Result<()> {
         let var = var.as_ref();
         let v = Variable::new(var.to_string(), type_.clone());
-        let ir = v.store(from)?;
+        let ir = v.store(from);
         scope.push(Elem(ir));
         Ok(())
     }
@@ -148,6 +133,10 @@ impl IrBuilder {
         }
     }
 
+    fn push_label(&self, scope: &mut Vec<Element>, label: impl AsRef<str>) {
+        scope.push(Elem(format!("{}:", label.as_ref())));
+    }
+
     fn convert_expression(&mut self, expression: TypedExpression, scope: &mut Vec<Element>) -> anyhow::Result<MemoryValue> {
         type T = TypedExpression;
         match expression {
@@ -155,7 +144,6 @@ impl IrBuilder {
                 let mut if_scope = vec![];
                 let condition = self.convert_expression(*condition, &mut if_scope)?;
                 let true_block_type = true_block.type_.clone();
-
 
                 let ret_var = self.counters.next("if_ret_var");
                 let ret_var = Variable::new(ret_var, true_block_type.clone());
@@ -165,34 +153,37 @@ impl IrBuilder {
 
                 let if_true = self.counters.next("if_true");
                 let if_end = self.counters.next("if_end");
+                let if_else = self.counters.next("if_else");
 
-                if_scope.push(Elem(format!("{}:", if_true)));
-                let (true_scope, mut final_memory) = self.convert_block(true_block)?;
+                if_scope.push(Elem(format!("br {}, label %{}, label %{}",
+                    condition.to_ir(true),
+                    if_true.clone(),
+                    if_else.clone(),
+                )));
+                self.push_label(&mut if_scope, &if_true);
+                let (true_scope, final_memory) = self.convert_block(true_block)?;
                 if_scope.push(Scope(true_scope));
                 if let Some(final_memory) = final_memory {
                     self.store_variable(&mut if_scope, true_block_type.clone(), ret_var.name.clone(), final_memory)?;
                 }
                 if_scope.push(Elem(format!("br label %{}", &if_end)));
 
+                self.push_label(&mut if_scope, &if_else);
 
                 if let Some(else_block) = else_block {
-                    let if_else = self.counters.next("if_else");
-                    if_scope.push(Elem(format!("{}:", if_else)));
-
                     let else_block_type = else_block.type_.clone();
                     let (else_scope, final_memory) = self.convert_block(else_block)?;
                     if_scope.push(Scope(else_scope));
                     if let Some(final_memory) = final_memory{
                         self.store_variable(&mut if_scope, else_block_type, ret_var.name.clone(), final_memory)?;
                     }
-
-                    if_scope.push(Elem(format!("br label %{}", &if_end)));
                 }
 
+                if_scope.push(Elem(format!("br label %{}", &if_end)));
 
+                self.push_label(&mut if_scope, &if_end);
 
                 let ret_var_temp = self.load_variable(&mut if_scope, true_block_type, ret_var.name)?;
-
 
                 scope.push(Scope(if_scope));
                 return Ok(ret_var_temp)

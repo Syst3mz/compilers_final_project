@@ -201,14 +201,49 @@ mod tests {
     #[test]
     fn or_false() -> anyhow::Result<()> {
         let path = ".\\testing\\or_false.ll";
-        assert_eq!(run_test(path, AND_FALSE)?, 0);
+        assert_eq!(run_test(path, OR_FALSE)?, 0);
         Ok(())
     }
 
     #[test]
-    fn universal_question() -> anyhow::Result<()> {
-        let path = ".\\testing\\universal_question.ll";
+    fn if_true() -> anyhow::Result<()> {
+        let path = ".\\testing\\if_true.ll";
         assert_eq!(run_test(path, IF_TRUE)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn if_true_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\if_false.ll";
+        assert_eq!(run_test(path, IF_FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn controlled_flow() -> anyhow::Result<()> {
+        let path = ".\\testing\\controlled_flow.ll";
+        assert_eq!(run_test(path, CONTROLLED_FLOW)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn if_expr_true() -> anyhow::Result<()> {
+        let path = ".\\testing\\if_expr_true.ll";
+        assert_eq!(run_test(path, IF_EXPR_TRUE)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn nested_if_true() -> anyhow::Result<()> {
+        let path = ".\\testing\\nested_if_true.ll";
+        assert_eq!(run_test(path, NESTED_IF_TRUE)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn nested_if_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\nested_if_false.ll";
+        assert_eq!(run_test(path, NESTED_IF_FALSE)?, 42);
         Ok(())
     }
 

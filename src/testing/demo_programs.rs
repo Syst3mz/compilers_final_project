@@ -21,6 +21,49 @@ pub const IF_TRUE: &'static str = r"fn main() -> int {
     if 0 == 0 {
         return 42;
     }
+    return 0;
+}";
+
+pub const NESTED_IF_TRUE: &'static str = r"fn main() -> int {
+    if 0 == 0 {
+        if 1 == 1 {
+            return 42;
+        }
+    }
+    return 0;
+}";
+
+pub const NESTED_IF_FALSE: &'static str = r"fn main() -> int {
+    if 0 == 0 {
+        if 1 == 0 {
+            return 0;
+        }
+    }
+    return 42;
+}";
+
+pub const IF_FALSE: &'static str = r"fn main() -> int {
+    if 0 == 1 {
+        return 42;
+    }
+    return 0;
+}";
+
+pub const CONTROLLED_FLOW: &'static str = r"fn main() -> int {
+    let ans:int = 0;
+    if 0 == 0 {
+        ans = 42;
+    }
+    return ans;
+}";
+
+pub const IF_EXPR_TRUE: &'static str = r"fn main() -> int {
+    let ans:int = if 0 == 0 {
+        42
+    } else {
+        0
+    };
+    return ans;
 }";
 
 pub const UNIVERSE_EQ: &'static str = r"fn main() -> bool {
@@ -92,8 +135,5 @@ fn main() -> int {
     return universe(20, 22);
 }";
 
-pub const UNIVERSE_INT_TO_BOOL: &'static str = r"fn main() -> bool {
-    return 42;
-}";
 pub const TRUE: &'static str = "fn main() -> bool { return true; }";
 pub const FALSE: &'static str = "fn main() -> bool { return false; }";
