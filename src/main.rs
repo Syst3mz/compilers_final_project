@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn universal_eq_neg() -> anyhow::Result<()> {
         let path = ".\\testing\\universal_eq_neg.ll";
-        assert_eq!(run_test(path, UNIVERSE_EQ_NEG)?, 0);
+        assert_eq!(run_test(path, UNIVERSE_EQ_FALSE)?, 0);
         Ok(())
     }
 
@@ -143,9 +143,92 @@ mod tests {
     }
 
     #[test]
+    fn universal_g_neg() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_g_neg.ll";
+        assert_eq!(run_test(path, UNIVERSE_G_NEG)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn and() -> anyhow::Result<()> {
+        let path = ".\\testing\\and.ll";
+        assert_ne!(run_test(path, AND)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn and_a_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\and_a_false.ll";
+        assert_eq!(run_test(path, AND_A_FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn and_b_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\and_b_false.ll";
+        assert_eq!(run_test(path, AND_B_FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn and_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\and_false.ll";
+        assert_eq!(run_test(path, AND_FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn or() -> anyhow::Result<()> {
+        let path = ".\\testing\\or.ll";
+        assert_ne!(run_test(path, OR)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn or_a_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\or_a_false.ll";
+        assert_ne!(run_test(path, OR_A_FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn or_b_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\or_b_false.ll";
+        assert_ne!(run_test(path, OR_B_FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn or_false() -> anyhow::Result<()> {
+        let path = ".\\testing\\or_false.ll";
+        assert_eq!(run_test(path, AND_FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
     fn universal_question() -> anyhow::Result<()> {
         let path = ".\\testing\\universal_question.ll";
-        assert_eq!(run_test(path, UNIVERSAL_QUESTION)?, 42);
+        assert_eq!(run_test(path, IF_TRUE)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn universal_func_call_no_args() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_func_call_no_args.ll";
+        assert_eq!(run_test(path, UNIVERSE_FUNC_CALL_NO_ARGS)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn universal_func_call_arg() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_func_call_arg.ll";
+        assert_eq!(run_test(path, UNIVERSE_FUNC_CALL_ARG)?, 42);
+        Ok(())
+    }
+    #[test]
+    fn universal_func_call_args() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_func_call_args.ll";
+        assert_eq!(run_test(path, UNIVERSE_FUNC_CALL_ARGS)?, 42);
         Ok(())
     }
 }

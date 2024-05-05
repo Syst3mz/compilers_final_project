@@ -1,5 +1,6 @@
 use crate::parser::token::Token;
 use crate::parser::token_kind::TokenKind;
+use crate::parser::token_kind::TokenKind::EOI;
 
 #[derive(Debug)]
 pub struct TokenHolder {
@@ -16,7 +17,18 @@ impl TokenHolder {
     }
 
     pub fn current(&self) -> Token {
-        self.tokens[self.index].clone()
+        if let Some(t) = self.tokens.get(self.index) {
+            t.clone()
+        } else {
+            Token::un_located(EOI, "")
+        }
+    }
+
+    pub fn empty(&self) -> bool {
+        match self.current().kind() {
+            EOI => true,
+            _ => false
+        }
     }
     pub fn previous(&self) -> Token {self.tokens[self.index - 1].clone()}
 
@@ -48,9 +60,9 @@ impl Iterator for TokenHolder {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ret = self.tokens.get(self.index).map(|x| x.clone());
+        let ret = self.current();
         self.index += 1;
-        return ret;
+        return Some(ret);
     }
 }
 

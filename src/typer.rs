@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use itertools::Itertools;
 use thiserror::Error;
 use crate::ast::binary_operator::BinaryOperator;
 use crate::ast::Block;
@@ -12,7 +13,7 @@ use crate::typed_ast::typed_expression::TypedExpression;
 use crate::typed_ast::typed_statement::{FunctionDefinition, TypedStatement};
 use crate::typed_ast::typed_statement::TypedStatement::VariableDeclaration;
 use crate::typed_ast::TypedBlock;
-use crate::typer::TypingError::{ConflictingTypes, InvalidType};
+use crate::typer::TypingError::{ConflictingTypes, InvalidType, NameNotFound};
 
 #[derive(Debug, Error)]
 pub enum TypingError {
@@ -158,28 +159,35 @@ impl Typer {
         for statement in block {
             let typed_statement = self.type_statement(statement)?;
             typed_statements.push(typed_statement.clone());
-            final_type = typed_statement.get_type()
+            final_type = typed_statement.get_type();
         }
 
-        return Ok(TypedBlock { body: typed_statements, type_: final_type })
+        return Ok(TypedBlock {
+            body: typed_statements,
+            type_: final_type,
+        })
     }
 
-    fn type_expression(&mut self, expression: Expression) -> Result<TypedExpression, TypingError>{
+    // Hack to make if x comparisons work
+    fn int_to_bool_demote(&mut self, condition: Expression) -> Result<TypedExpression, TypingError> {
+        match self.type_expression(condition)? {
+            TypedExpression::Int(c) => {
+                Ok(TypedExpression::BinaryOperation {
+                    lhs: Box::new(TypedExpression::Int(c)),
+                    operator: BinaryOperator::GreaterThan,
+                    rhs: Box::new(TypedExpression::Int(Token::un_located(TokenKind::Int, "0"))),
+                    type_: Type::Int,
+                })
+            }
+            t => Ok(t)
+        }
+    }
+
+    fn type_expression(&mut self, expression: Expression) -> Result<TypedExpression, TypingError> {
         match expression {
             Expression::If { condition, true_block, else_block } => {
 
-                let condition = match self.type_expression(*condition)? {
-                    // Hack to make if x comparisons work
-                    TypedExpression::Int(c) => {
-                        TypedExpression::BinaryOperation {
-                            lhs: Box::new(TypedExpression::Int(c)),
-                            operator: BinaryOperator::GreaterThan,
-                            rhs: Box::new(TypedExpression::Int(Token::un_located(TokenKind::Int, "0"))),
-                            type_: Type::Int,
-                        }
-                    }
-                    t => t
-                };
+                let condition = self.int_to_bool_demote(*condition)?;
 
                 if condition.get_type() != Type::Bool {
                     return Err(InvalidType(condition.get_type(), Type::Bool))
@@ -212,7 +220,13 @@ impl Typer {
                     type_: new_type,
                 })
             },
-            Expression::FunctionCall { .. } => unimplemented!(),
+            Expression::FunctionCall { name, arguments } => {
+                Ok(TypedExpression::FunctionCall {
+                    name: name.clone(),
+                    arguments: arguments.into_iter().map(|x| self.type_expression(x)).try_collect()?,
+                    type_: self.find_in_scopes(name.lexeme()).ok_or(NameNotFound(name))?,
+                })
+            },
             Expression::UnaryOperation { operator, rhs } =>  {
                 Ok(TypedExpression::UnaryOperation {
                     operator, rhs: Box::new(self.type_expression(*rhs)?)

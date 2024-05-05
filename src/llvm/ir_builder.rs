@@ -1,3 +1,4 @@
+use std::fmt::format;
 use itertools::Itertools;
 use thiserror::Error;
 use crate::ast::binary_operator::BinaryOperator;
@@ -27,7 +28,7 @@ pub enum MemoryValue {
 impl MemoryValue {
     pub fn to_ir(self, include_type: bool) -> String {
         let (value, type_) = match self {
-            Temp(name, type_) => (name, type_.llvm_type()),
+            Temp(name, type_) => (format!("%{}", name), type_.llvm_type()),
             Const(value, type_) => (value, type_.llvm_type())
         };
 
@@ -78,13 +79,17 @@ impl IrBuilder {
         Ok(())
     }
 
-    fn convert_block(&mut self, body: TypedBlock) -> anyhow::Result<Vec<Element>> {
+    fn convert_block(&mut self, block: TypedBlock) -> anyhow::Result<(Vec<Element>, Option<MemoryValue>)> {
         let mut new_scope = vec![];
-        for statement in body.body.clone() {
-            self.convert_statement(statement, &mut new_scope)?;
+        let mut final_mv = None;
+        for index in 0..block.body.len() {
+            let mv = self.convert_statement(block.body[index].clone(), &mut new_scope)?;
+            if index == block.body.len() - 1 {
+                final_mv = mv
+            }
         }
 
-        return Ok(new_scope);
+        return Ok((new_scope, final_mv));
     }
 
     pub fn convert_statement(&mut self, statement: TypedStatement, scope: &mut Vec<Element>) -> anyhow::Result<Option<MemoryValue>> {
@@ -94,13 +99,24 @@ impl IrBuilder {
                                      func_def.type_.llvm_type(),
                                      func_def.name.lexeme(),
                     func_def.arg_list.iter()
-                                         .map(|(token, type_)| format!("{} %{}", type_.llvm_type(), token.lexeme()))
+                                         .map(|(token, type_)| format!("{} %_{}", type_.llvm_type(), token.lexeme()))
                                          .join(", ")
                 );
-                let body = self.convert_block(func_def.body)?;
+                let mut allocs = vec![];
+                for (name, type_) in func_def.arg_list.iter() {
+                    allocs.push(Elem(format!("{} = alloca {}", format!("%{}", name.lexeme()), type_.clone().llvm_type())));
+                    self.store_variable(
+                        &mut allocs,
+                        type_.clone(),
+                        name.lexeme(),
+                        Temp(format!("_{}", name.lexeme()), type_.clone())
+                    )?;
+                }
+                let (body, _) = self.convert_block(func_def.body)?;
                 let tail = String::from("}");
 
                 scope.push(Elem(header));
+                scope.push(Scope(allocs));
                 scope.push(Scope(body));
                 scope.push(Elem(tail));
 
@@ -125,14 +141,62 @@ impl IrBuilder {
 
                 Ok(None)
             },
-            TypedStatement::Expression(e) => Err(self.convert_expression(e, scope).unwrap_err()),
+            TypedStatement::Expression(e) => {
+                let e = self.convert_expression(e, scope)?;
+                Ok(Some(e))
+            },
         }
     }
 
     fn convert_expression(&mut self, expression: TypedExpression, scope: &mut Vec<Element>) -> anyhow::Result<MemoryValue> {
         type T = TypedExpression;
         match expression {
-            T::If { .. } => unimplemented!(),
+            T::If { condition, true_block, else_block } => {
+                let mut if_scope = vec![];
+                let condition = self.convert_expression(*condition, &mut if_scope)?;
+                let true_block_type = true_block.type_.clone();
+
+
+                let ret_var = self.counters.next("if_ret_var");
+                let ret_var = Variable::new(ret_var, true_block_type.clone());
+                if_scope.push(Elem(
+                    format!("%{} = alloca {}",ret_var.name.clone(), ret_var.type_.llvm_type()))
+                );
+
+                let if_true = self.counters.next("if_true");
+                let if_end = self.counters.next("if_end");
+
+                if_scope.push(Elem(format!("{}:", if_true)));
+                let (true_scope, mut final_memory) = self.convert_block(true_block)?;
+                if_scope.push(Scope(true_scope));
+                if let Some(final_memory) = final_memory {
+                    self.store_variable(&mut if_scope, true_block_type.clone(), ret_var.name.clone(), final_memory)?;
+                }
+                if_scope.push(Elem(format!("br label %{}", &if_end)));
+
+
+                if let Some(else_block) = else_block {
+                    let if_else = self.counters.next("if_else");
+                    if_scope.push(Elem(format!("{}:", if_else)));
+
+                    let else_block_type = else_block.type_.clone();
+                    let (else_scope, final_memory) = self.convert_block(else_block)?;
+                    if_scope.push(Scope(else_scope));
+                    if let Some(final_memory) = final_memory{
+                        self.store_variable(&mut if_scope, else_block_type, ret_var.name.clone(), final_memory)?;
+                    }
+
+                    if_scope.push(Elem(format!("br label %{}", &if_end)));
+                }
+
+
+
+                let ret_var_temp = self.load_variable(&mut if_scope, true_block_type, ret_var.name)?;
+
+
+                scope.push(Scope(if_scope));
+                return Ok(ret_var_temp)
+            },
             T::BinaryOperation { lhs, operator, rhs, type_ } => {
                 let lhs_type = lhs.get_type();
                 let lhs = self.convert_expression(*lhs, scope)?;
@@ -141,14 +205,16 @@ impl IrBuilder {
                     BinaryOperator::Add => ("add", "add"),
                     BinaryOperator::Equals => ("icmp eq", "eq"),
                     BinaryOperator::GreaterThan => ("icmp sgt", "gt"),
-                    _ => unimplemented!()
+                    BinaryOperator::And => ("and", "and"),
+                    BinaryOperator::Or => ("or", "or"),
                 };
 
                 let ans_name = self.counters.next(op_name);
                 let ans = Temp(ans_name.clone(),type_.clone());
 
+
                 scope.push(Elem(format!("{} = {} {} {}, {}",
-                                        ans_name,
+                                        ans.clone().to_ir(false),
                                         op_string,
                                         lhs_type.llvm_type(),
                                         lhs.to_ir(false),
@@ -157,7 +223,29 @@ impl IrBuilder {
 
                 return Ok(ans)
             },
-            T::FunctionCall { .. } => unimplemented!(),
+            T::FunctionCall { name, arguments, type_ } => {
+                let expr_homes: Vec<String> = arguments
+                    .into_iter()
+                    .map(|x| self.convert_expression(x, scope).map(|x| x.to_ir(true)))
+                    .try_collect()?;
+
+                let expr_homes = expr_homes.join(",");
+
+
+                let ans = self.counters.next(format!("function_{}", name.lexeme()));
+                let ans_home = Temp(ans, type_.clone());
+
+                let push = format!("{} = call {} @{}({})",
+                                   ans_home.clone().to_ir(false),
+                                   type_.llvm_type(),
+                                   name.lexeme(),
+                                   expr_homes
+                );
+
+                scope.push(Elem(push));
+
+                return Ok(ans_home)
+            },
             T::UnaryOperation { operator, rhs } => {
                 match operator {
                     UnaryOperator::Sub => {
@@ -169,7 +257,7 @@ impl IrBuilder {
                         let ans = Temp(ans_name.clone(),rhs_type.clone());
 
                         scope.push(Elem(format!("{} = sub i32 0, {}",
-                                                ans_name,
+                                                ans.clone().to_ir(false),
                                                 rhs.to_ir(false)
                         )));
 

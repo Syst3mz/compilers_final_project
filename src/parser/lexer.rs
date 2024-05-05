@@ -105,6 +105,7 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::binary_operator::BinaryOperator::And;
     use super::*;
 
     #[test]
@@ -248,5 +249,43 @@ mod tests {
         assert!(tokens[13].content_equal(&Token::un_located(LCurlyBrace, "{")));
         assert!(tokens[14].content_equal(&Token::un_located(RCurlyBrace, "}")));
         assert!(tokens[15].content_equal(&Token::un_located(EOI, "")));
+    }
+
+    #[test]
+    fn and() {
+        let text = "42 && 0";
+        let tokens = Lexer::new(text).lex();
+        assert_eq!(tokens.len(), 4);
+
+        assert!(tokens[0].content_equal(&Token::un_located(Int, "42")));
+        assert!(tokens[1].content_equal(&Token::un_located(AndAnd, "&&")));
+        assert!(tokens[2].content_equal(&Token::un_located(Int, "0")));
+        assert!(tokens[3].content_equal(&Token::un_located(EOI, "")));
+    }
+
+    #[test]
+    fn double_def() {
+        let text = "fn universe() -> int {} fn main() -> int {}";
+        let tokens = Lexer::new(text).lex();
+        assert_eq!(tokens.len(), 17);
+
+        assert!(tokens[0].content_equal(&Token::un_located(Fn, "fn")));
+        assert!(tokens[1].content_equal(&Token::un_located(Name, "universe")));
+        assert!(tokens[2].content_equal(&Token::un_located(LParen, "(")));
+        assert!(tokens[3].content_equal(&Token::un_located(RParen, ")")));
+        assert!(tokens[4].content_equal(&Token::un_located(Arrow, "->")));
+        assert!(tokens[5].content_equal(&Token::un_located(IntType, "int")));
+        assert!(tokens[6].content_equal(&Token::un_located(LCurlyBrace, "{")));
+        assert!(tokens[7].content_equal(&Token::un_located(RCurlyBrace, "}")));
+
+        assert!(tokens[8].content_equal(&Token::un_located(Fn, "fn")));
+        assert!(tokens[9].content_equal(&Token::un_located(Name, "main")));
+        assert!(tokens[10].content_equal(&Token::un_located(LParen, "(")));
+        assert!(tokens[11].content_equal(&Token::un_located(RParen, ")")));
+        assert!(tokens[12].content_equal(&Token::un_located(Arrow, "->")));
+        assert!(tokens[13].content_equal(&Token::un_located(IntType, "int")));
+        assert!(tokens[14].content_equal(&Token::un_located(LCurlyBrace, "{")));
+        assert!(tokens[15].content_equal(&Token::un_located(RCurlyBrace, "}")));
+        assert!(tokens[16].content_equal(&Token::un_located(EOI, "")));
     }
 }

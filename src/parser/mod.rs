@@ -125,7 +125,6 @@ impl Parser {
     }
     
     fn parse_statement(&mut self) -> anyhow::Result<Statement> {
-
         if self.tokens.t_match(Let).is_some() {
 
             let var_decl = self.parse_var_declaration()?;
@@ -176,6 +175,7 @@ impl Parser {
             let type_ = self.parse_type()?;
             let block = self.parse_block()?;
 
+
             return Ok(FunctionDefinitionStatement(FunctionDefinition {
                 name,
                 type_,
@@ -188,6 +188,7 @@ impl Parser {
             self.eat_semicolon()?;
             return Ok(ret)
         }
+
         let expr = self.parse_expr()?;
 
         match expr {
@@ -406,10 +407,13 @@ impl Parser {
     }
 
     pub fn parse(mut self) -> anyhow::Result<Vec<Statement>>{
-        return Ok(vec![self.parse_statement()?])
+        let mut statements = vec![];
+        while !self.tokens.empty() {
+            statements.push(self.parse_statement()?);
+        }
+
+        return Ok(statements)
     }
-
-
 }
 
 #[cfg(test)]
@@ -485,6 +489,19 @@ mod tests {
         assert_eq!(to_s_expr(ast), vec![SExpr::parse("(== 20 4)")])
     }
 
+    #[test]
+    fn and() {
+        let text = "42 && 13;";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(&& 42 13)")])
+    }
+
+    #[test]
+    fn return_and() {
+        let text = "return 42 && 13;";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(return (&& 42 13))")])
+    }
 
     #[test]
     fn simple_math() {
@@ -578,6 +595,26 @@ mod tests {
     }
 
     #[test]
+    fn two_statements() {
+        let text = "2; 3;";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![
+            SExpr::parse("2"),
+            SExpr::parse("3")
+        ])
+    }
+
+    #[test]
+    fn ret_ret() {
+        let text = "return 2; return 3;";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![
+            SExpr::parse("(return 2)"),
+            SExpr::parse("(return 3)")
+        ])
+    }
+
+    #[test]
     fn func_call() {
         let text = "cat();";
         let ast = Parser::new(text).parse().unwrap();
@@ -596,5 +633,24 @@ mod tests {
         let text = "fn func(a:int, b:bool) -> int { return a + b; }";
         let ast = Parser::new(text).parse().unwrap();
         assert_eq!(to_s_expr(ast), vec![SExpr::parse("(function_define func a:int b:bool (return (+ a b)) ->int)")])
+    }
+
+    #[test]
+    fn two_func_def_2() {
+        let text = "fn func() -> int { return a; } fn func2() -> int { return a; }";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![
+            SExpr::parse("(function_define func (return a) ->int)"),
+            SExpr::parse("(function_define func2 (return a) ->int)")
+        ])
+    }
+
+    #[test]
+    fn two_call() {
+        let text = "return universe(20, 22);";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![
+            SExpr::parse("(return (universe 20 22))"),
+        ]);
     }
 }
