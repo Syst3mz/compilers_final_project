@@ -75,7 +75,7 @@ impl Typer {
         let typed_value = self.type_expression(value)?;
 
         if !self.current_scope().contains_key(var.lexeme()) {
-            return Err(TypingError::NameNotFound(var))
+            return Err(NameNotFound(var))
         }
 
         let value_in_scope = self.current_scope_mut().get_mut(var.lexeme()).unwrap();
@@ -243,7 +243,7 @@ impl Typer {
             Expression::Name(name) => {
                 self.find_in_scopes(name.lexeme())
                     .map(|x| TypedExpression::Name(name.clone(), x))
-                    .ok_or(TypingError::NameNotFound(name))
+                    .ok_or(NameNotFound(name))
             }
         }
     }

@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::process::Output;
-use anyhow::Context;
+use anyhow::{Context, Error};
 use crate::llvm::convert;
 use crate::parser::Parser;
 use crate::typer::Typer;
@@ -44,10 +44,25 @@ fn run(path: impl AsRef<Path>) -> anyhow::Result<Output>{
         .context("Unable to start a.exe")
 }
 
+fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
 
+    if !(args.len() == 3 || args.len() == 2)  {
+        return Err(Error::msg("target file must be specified with an optional single file name for output."));
+    }
 
-fn main() {
-    println!("Hello, world!");
+    let target_ll = if args.len() == 3 {
+        args[2].as_str()
+    } else {
+        "a.ll"
+    };
+
+    let text = std::fs::read_to_string(&args[1])?;
+    write_ll(text, target_ll)?;
+    compile(target_ll)?;
+
+    println!("Done!");
+    Ok(())
 }
 
 #[cfg(test)]
