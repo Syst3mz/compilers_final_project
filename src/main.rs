@@ -52,7 +52,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::demo_programs::{THE_UNIVERSE, THE_UNIVERSE_BY_ADDITION};
+    use crate::testing::demo_programs::*;
     use super::*;
 
     fn run_test(path: impl AsRef<Path>, text: impl AsRef<str>) -> anyhow::Result<i32> {
@@ -83,6 +83,69 @@ mod tests {
     fn forty_two_add() -> anyhow::Result<()> {
         let path = ".\\testing\\universe_addition.ll";
         assert_eq!(run_test(path, THE_UNIVERSE_BY_ADDITION)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn truth() -> anyhow::Result<()> {
+        let path = ".\\testing\\true.ll";
+        assert_ne!(run_test(path, TRUE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn falsehood() -> anyhow::Result<()> {
+        let path = ".\\testing\\false.ll";
+        assert_eq!(run_test(path, FALSE)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn assigned_universe() -> anyhow::Result<()> {
+        let path = ".\\testing\\assigned_universe.ll";
+        assert_eq!(run_test(path, ASSIGNED_UNIVERSE)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn assigned_universe_mutation() -> anyhow::Result<()> {
+        let path = ".\\testing\\assigned_universe_mutation.ll";
+        assert_eq!(run_test(path, ASSIGNED_UNIVERSE_MUTATION)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn universal_negation() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_negation.ll";
+        assert_eq!(run_test(path, UNIVERSAL_NEGATION)?, 42);
+        Ok(())
+    }
+
+    #[test]
+    fn universal_eq_neg() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_eq_neg.ll";
+        assert_eq!(run_test(path, UNIVERSE_EQ_NEG)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn universal_eq() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_eq.ll";
+        assert_ne!(run_test(path, UNIVERSE_EQ)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn universal_g() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_g.ll";
+        assert_ne!(run_test(path, UNIVERSE_G)?, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn universal_question() -> anyhow::Result<()> {
+        let path = ".\\testing\\universal_question.ll";
+        assert_eq!(run_test(path, UNIVERSAL_QUESTION)?, 42);
         Ok(())
     }
 }

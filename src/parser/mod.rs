@@ -472,6 +472,21 @@ mod tests {
     }
 
     #[test]
+    fn plus_neg() {
+        let text = "20 + -1;";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(+ 20 (- 1))")])
+    }
+
+    #[test]
+    fn equals() {
+        let text = "20 == 4;";
+        let ast = Parser::new(text).parse().unwrap();
+        assert_eq!(to_s_expr(ast), vec![SExpr::parse("(== 20 4)")])
+    }
+
+
+    #[test]
     fn simple_math() {
         let text = "1 + 2;";
         let ast = Parser::new(text).parse().unwrap();

@@ -1,19 +1,29 @@
 use std::collections::HashMap;
 use thiserror::Error;
+use crate::ast::binary_operator::BinaryOperator;
 use crate::ast::Block;
 use crate::ast::expression::Expression;
 use crate::ast::statement::Statement;
 use crate::parser::token::Token;
+use crate::parser::token_kind::TokenKind;
 use crate::typed_ast::r#type::Type;
 use crate::typed_ast::r#type::Type::Unit;
 use crate::typed_ast::typed_expression::TypedExpression;
 use crate::typed_ast::typed_statement::{FunctionDefinition, TypedStatement};
+use crate::typed_ast::typed_statement::TypedStatement::VariableDeclaration;
 use crate::typed_ast::TypedBlock;
+use crate::typer::TypingError::{ConflictingTypes, InvalidType};
 
 #[derive(Debug, Error)]
 pub enum TypingError {
     #[error("Unable to find {0} in enclosing scopes.")]
-    NameNotFound(Token)
+    NameNotFound(Token),
+
+    #[error("{0} declared as {1} but assigned to {1}.")]
+    ConflictingTypes(Token, Type, Type),
+
+    #[error("{0} MUST be {1}")]
+    InvalidType(Type, Type)
 }
 
 pub struct Typer {
@@ -60,10 +70,31 @@ impl Typer {
         Ok(())
     }
 
+    fn type_var_assignment(&mut self, var: Token, value: Expression) -> Result<TypedStatement, TypingError> {
+        let typed_value = self.type_expression(value)?;
+
+        if !self.current_scope().contains_key(var.lexeme()) {
+            return Err(TypingError::NameNotFound(var))
+        }
+
+        let value_in_scope = self.current_scope_mut().get_mut(var.lexeme()).unwrap();
+
+        if value_in_scope.clone() != typed_value.get_type() {
+            return Err(ConflictingTypes(var, value_in_scope.clone(), typed_value.get_type()))
+        }
+
+        *value_in_scope = typed_value.get_type();
+        Ok(TypedStatement::Assignment {
+            to: var,
+            value: typed_value,
+        })
+    }
+
     fn type_statement(&mut self, statement: Statement) -> Result<TypedStatement, TypingError> {
+        type S = Statement;
+        type TS = TypedStatement;
         match statement {
-            Statement::VariableDeclaration { .. } => unimplemented!(),
-            Statement::FunctionDefinitionStatement(def) => {
+            S::FunctionDefinitionStatement(def) => {
                 let def_clone = def.clone();
                 let func_def_in_scope = self.current_scope_mut()
                     .entry(def.name.lexeme().to_string())
@@ -71,7 +102,7 @@ impl Typer {
                 *func_def_in_scope = def.type_;
 
                 self.push_function(&def.arg_list);
-                let typed_func = TypedStatement::FunctionDefinitionStatement(FunctionDefinition {
+                let typed_func = TS::FunctionDefinitionStatement(FunctionDefinition {
                     name: def_clone.name,
                     type_: def_clone.type_,
                     arg_list: def_clone.arg_list,
@@ -81,10 +112,31 @@ impl Typer {
 
                 Ok(typed_func)
             }
-            Statement::Assignment { .. } => unimplemented!(),
-            Statement::While { .. } => unimplemented!(),
-            Statement::Return(e) => Ok(TypedStatement::Return(self.type_expression(e)?)),
-            Statement::Expression(e) => Ok(TypedStatement::Expression(self.type_expression(e)?)),
+            S::VariableDeclaration { name:to, type_:t, value } => {
+                let decl = self.current_scope_mut()
+                    .entry(to.lexeme().to_string())
+                    .or_insert(t.clone());
+                *decl = t.clone();
+                let assignment = self.type_var_assignment(to.clone(), value.clone())?;
+
+                // type checking yeah!
+                if assignment.get_type() != t.clone() {
+                    return Err(ConflictingTypes(to, assignment.get_type(), t));
+                }
+
+                Ok(VariableDeclaration {
+                    name: to,
+                    type_: t,
+                    value: self.type_expression(value)?,
+                })
+            }
+
+            S::Assignment { to, value } => {
+                self.type_var_assignment(to, value)
+            },
+            S::While { .. } => unimplemented!(),
+            S::Return(e) => Ok(TS::Return(self.type_expression(e)?)),
+            S::Expression(e) => Ok(TS::Expression(self.type_expression(e)?)),
         }
     }
 
@@ -112,14 +164,47 @@ impl Typer {
         return Ok(TypedBlock { body: typed_statements, type_: final_type })
     }
 
-    fn type_expression(&self, expression: Expression) -> Result<TypedExpression, TypingError>{
+    fn type_expression(&mut self, expression: Expression) -> Result<TypedExpression, TypingError>{
         match expression {
-            Expression::If { .. } => unimplemented!(),
+            Expression::If { condition, true_block, else_block } => {
+
+                let condition = match self.type_expression(*condition)? {
+                    // Hack to make if x comparisons work
+                    TypedExpression::Int(c) => {
+                        TypedExpression::BinaryOperation {
+                            lhs: Box::new(TypedExpression::Int(c)),
+                            operator: BinaryOperator::GreaterThan,
+                            rhs: Box::new(TypedExpression::Int(Token::un_located(TokenKind::Int, "0"))),
+                            type_: Type::Int,
+                        }
+                    }
+                    t => t
+                };
+
+                if condition.get_type() != Type::Bool {
+                    return Err(InvalidType(condition.get_type(), Type::Bool))
+                }
+
+                let true_block = self.type_block(true_block)?;
+                let else_block = if let Some(else_block) = else_block{
+                    Some(self.type_block(else_block)?)
+                } else { None };
+                Ok(TypedExpression::If {
+                    condition: Box::new(condition),
+                    true_block,
+                    else_block,
+                })
+            },
             Expression::BinaryOperation { lhs, operator, rhs } => {
                 let lhs = self.type_expression(*lhs)?;
                 let rhs = self.type_expression(*rhs)?;
 
-                let new_type = lhs.get_type();
+                let mut new_type = lhs.get_type();
+
+                match operator {
+                    BinaryOperator::Add => {}
+                    _ => {new_type = Type::Bool}
+                }
                 Ok(TypedExpression::BinaryOperation {
                     lhs: Box::new(lhs),
                     operator,
@@ -128,7 +213,11 @@ impl Typer {
                 })
             },
             Expression::FunctionCall { .. } => unimplemented!(),
-            Expression::UnaryOperation { .. } => unimplemented!(),
+            Expression::UnaryOperation { operator, rhs } =>  {
+                Ok(TypedExpression::UnaryOperation {
+                    operator, rhs: Box::new(self.type_expression(*rhs)?)
+                })
+            },
             Expression::Int(i) => Ok(TypedExpression::Int(i)),
             Expression::Bool(b, t) => Ok(TypedExpression::Bool(b, t)),
             Expression::List(_) => unimplemented!(),

@@ -1,11 +1,12 @@
 use itertools::Itertools;
 use thiserror::Error;
 use crate::ast::binary_operator::BinaryOperator;
+use crate::ast::unary_operator::UnaryOperator;
 use crate::llvm::counters::Counters;
 use crate::llvm::element::Element;
 use crate::llvm::element::Element::{Elem, Scope};
-use crate::llvm::ir_builder::TempOrConst::{Const, Temp};
-use crate::parser::token::Token;
+use crate::llvm::ir_builder::MemoryValue::{Const, Temp};
+use crate::llvm::variable::Variable;
 use crate::typed_ast::r#type::Type;
 use crate::typed_ast::typed_expression::TypedExpression;
 use crate::typed_ast::typed_statement::TypedStatement;
@@ -14,16 +15,17 @@ use crate::typed_ast::TypedBlock;
 #[derive(Debug, Error)]
 pub enum ConverterError {
     #[error("Tried to treat {0} as a value, it is not.")]
-    UnableToConvertToValue(String)
+    UnableToConvertToValue(String),
 }
 
-enum TempOrConst {
+#[derive(Debug, Clone)]
+pub enum MemoryValue {
     Temp(String, Type),
-    Const(String, Type)
+    Const(String, Type),
 }
 
-impl TempOrConst {
-    fn to_ir(self, include_type: bool) -> String {
+impl MemoryValue {
+    pub fn to_ir(self, include_type: bool) -> String {
         let (value, type_) = match self {
             Temp(name, type_) => (name, type_.llvm_type()),
             Const(value, type_) => (value, type_.llvm_type())
@@ -47,19 +49,33 @@ impl IrBuilder {
         }
     }
 
-    fn push_expr(&mut self, scope: &mut Vec<Element>, type_: Type, expr: impl AsRef<str>) -> TempOrConst {
+    fn push_expr(&mut self, scope: &mut Vec<Element>, type_: Type, expr: impl AsRef<str>) -> MemoryValue {
         let name = self.counters.next(type_.llvm_type());
         let home = Temp(name.clone(), type_.clone());
         scope.push(Elem(format!("{} = {} {}", name, type_.llvm_type(), expr.as_ref())));
         return home;
     }
 
-    fn push_int(&mut self, scope: &mut Vec<Element>, int: Token) -> TempOrConst {
-        self.push_expr(scope, Type::Int, int.lexeme())
+    /// Load from a variable into a temp
+    fn load_variable(&mut self, scope: &mut Vec<Element>, type_: Type, var: impl AsRef<str>) -> anyhow::Result<MemoryValue> {
+        let var = var.as_ref();
+        let temp = self.counters.next(var);
+        let home = Temp(temp, type_.clone());
+
+        let v = Variable::new(var.to_string(), type_.clone());
+        let ir = v.load(home.clone());
+        scope.push(Elem(ir));
+
+        return Ok(home)
     }
 
-    fn push_bool(&mut self, scope: &mut Vec<Element>, bool: bool) -> TempOrConst {
-        self.push_expr(scope, Type::Bool, if bool { "1" } else { "0" })
+    /// Store from a temp to a variable
+    fn store_variable(&mut self, scope: &mut Vec<Element>, type_: Type, var: impl AsRef<str>, from: MemoryValue) -> Result<(), ConverterError> {
+        let var = var.as_ref();
+        let v = Variable::new(var.to_string(), type_.clone());
+        let ir = v.store(from)?;
+        scope.push(Elem(ir));
+        Ok(())
     }
 
     fn convert_block(&mut self, body: TypedBlock) -> anyhow::Result<Vec<Element>> {
@@ -71,9 +87,8 @@ impl IrBuilder {
         return Ok(new_scope);
     }
 
-    pub fn convert_statement(&mut self, statement: TypedStatement, scope: &mut Vec<Element>) -> anyhow::Result<Option<String>> {
+    pub fn convert_statement(&mut self, statement: TypedStatement, scope: &mut Vec<Element>) -> anyhow::Result<Option<MemoryValue>> {
         match statement {
-            TypedStatement::VariableDeclaration { .. } => unimplemented!(),
             TypedStatement::FunctionDefinitionStatement(func_def) => {
                 let header = format!("define {} @{}({}) {{",
                                      func_def.type_.llvm_type(),
@@ -91,7 +106,18 @@ impl IrBuilder {
 
                 Ok(None)
             },
-            TypedStatement::Assignment { .. } => unimplemented!(),
+            TypedStatement::VariableDeclaration { name, type_, value } => {
+                let value = self.convert_expression(value, scope)?;
+                scope.push(Elem(format!("%{} = alloca {}", name.lexeme(), type_.clone().llvm_type())));
+                self.store_variable(scope, type_, name.lexeme(), value)?;
+                Ok(None)
+            }
+            TypedStatement::Assignment { to, value } => {
+                let type_ = value.get_type();
+                let value = self.convert_expression(value, scope)?;
+                self.store_variable(scope, type_, to.lexeme(), value)?;
+                Ok(None)
+            },
             TypedStatement::While { .. } => unimplemented!(),
             TypedStatement::Return(e) => {
                 let v = self.convert_expression(e, scope)?;
@@ -99,29 +125,32 @@ impl IrBuilder {
 
                 Ok(None)
             },
-            TypedStatement::Expression(e) => unimplemented!(),
+            TypedStatement::Expression(e) => Err(self.convert_expression(e, scope).unwrap_err()),
         }
     }
 
-    pub fn convert_expression(&mut self, expression: TypedExpression, scope: &mut Vec<Element>) -> anyhow::Result<TempOrConst> {
+    fn convert_expression(&mut self, expression: TypedExpression, scope: &mut Vec<Element>) -> anyhow::Result<MemoryValue> {
         type T = TypedExpression;
         match expression {
             T::If { .. } => unimplemented!(),
             T::BinaryOperation { lhs, operator, rhs, type_ } => {
+                let lhs_type = lhs.get_type();
                 let lhs = self.convert_expression(*lhs, scope)?;
                 let rhs = self.convert_expression(*rhs, scope)?;
-                let op_string = match operator {
-                    BinaryOperator::Add => "add",
+                let (op_string, op_name) = match operator {
+                    BinaryOperator::Add => ("add", "add"),
+                    BinaryOperator::Equals => ("icmp eq", "eq"),
+                    BinaryOperator::GreaterThan => ("icmp sgt", "gt"),
                     _ => unimplemented!()
                 };
 
-                let ans_name = self.counters.next(op_string);
+                let ans_name = self.counters.next(op_name);
                 let ans = Temp(ans_name.clone(),type_.clone());
 
                 scope.push(Elem(format!("{} = {} {} {}, {}",
                                         ans_name,
                                         op_string,
-                                        type_.llvm_type(),
+                                        lhs_type.llvm_type(),
                                         lhs.to_ir(false),
                                         rhs.to_ir(false)
                 )));
@@ -129,11 +158,30 @@ impl IrBuilder {
                 return Ok(ans)
             },
             T::FunctionCall { .. } => unimplemented!(),
-            T::UnaryOperation { .. } => unimplemented!(),
+            T::UnaryOperation { operator, rhs } => {
+                match operator {
+                    UnaryOperator::Sub => {
+                        let rhs_type = rhs.get_type();
+                        let rhs = self.convert_expression(*rhs, scope)?;
+
+
+                        let ans_name = self.counters.next("sub");
+                        let ans = Temp(ans_name.clone(),rhs_type.clone());
+
+                        scope.push(Elem(format!("{} = sub i32 0, {}",
+                                                ans_name,
+                                                rhs.to_ir(false)
+                        )));
+
+                        return Ok(ans)
+                    },
+                    UnaryOperator::Not => unimplemented!()
+                }
+            },
             T::Int(t) => Ok(Const(t.lexeme().to_string(), Type::Int)),
             T::Bool(v, _) => Ok(Const(String::from(if v { "1" } else { "0" }), Type::Bool)),
             T::List(_, _) => unimplemented!(),
-            T::Name(t, type_) => Ok(self.push_expr(scope, type_, t.lexeme())),
+            T::Name(t, type_) => self.load_variable(scope, type_, t.lexeme()),
         }
     }
 }

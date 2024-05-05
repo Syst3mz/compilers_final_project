@@ -1,4 +1,5 @@
 use crate::ast::binary_operator::BinaryOperator;
+use crate::ast::expression::Expression;
 use crate::ast::unary_operator::UnaryOperator;
 use crate::parser::token::Token;
 use crate::testing::s_expr::SExpr;
@@ -44,7 +45,7 @@ impl TypedExpression {
             TypedExpression::Int(_) => Type::Int,
             TypedExpression::Bool(_, _) => Type::Bool,
             TypedExpression::List(_, t) => t.clone(),
-            TypedExpression::Name(_, t) => t.clone()
+            TypedExpression::Name(_, t) => t.clone(),
         }
     }
 }
@@ -65,7 +66,7 @@ impl ToSExpr for TypedExpression {
             TypedExpression::BinaryOperation { lhs, operator, rhs, type_: _ } => {
                 SExpr::Function(operator.to_string(), vec![lhs.to_s_expr(), rhs.to_s_expr()])
             }
-            TypedExpression::FunctionCall { name, arguments, type_ } => {
+            TypedExpression::FunctionCall { name, arguments, type_:_ } => {
                 SExpr::Function(
                     name.lexeme().to_string(),
                     arguments.into_iter().map(|x| x.to_s_expr()).collect()

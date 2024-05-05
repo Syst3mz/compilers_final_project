@@ -4,6 +4,7 @@ use crate::typed_ast::typed_statement::TypedStatement;
 mod counters;
 mod ir_builder;
 mod element;
+mod variable;
 
 pub fn convert(ast: Vec<TypedStatement>) -> anyhow::Result<Vec<String>> {
     let mut builder = IrBuilder::new();

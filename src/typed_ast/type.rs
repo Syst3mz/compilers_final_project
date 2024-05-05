@@ -6,7 +6,6 @@ pub enum Type {
     Bool,
     List(Box<Type>),
     Unit,
-    Unknown,
 }
 
 impl Type {
@@ -16,7 +15,6 @@ impl Type {
             Type::Bool => String::from("i1"),
             Type::List(_) => unimplemented!(),
             Type::Unit => String::from(""),
-            Type::Unknown => panic!("There is no LLVM type for unknown...something has gone amiss.")
         }
     }
 }
@@ -28,7 +26,6 @@ impl Display for Type {
             Type::Bool => String::from("bool"),
             Type::List(t) => format!("list<{}>", t),
             Type::Unit => String::from("unit"),
-            Type::Unknown => String::from("UNKNOWN")
         })
     }
 }

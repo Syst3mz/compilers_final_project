@@ -11,7 +11,7 @@ impl Element {
                 let mut ret = vec![];
 
                 for mut flat in v.into_iter().map(|x| x.flatten()) {
-                    for mut str in flat.iter_mut() {
+                    for str in flat.iter_mut() {
                         *str = format!("\t{}", str)
                     }
 
